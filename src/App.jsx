@@ -1,14 +1,20 @@
 import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
 import './App.css'
+import Navbar from './Component/Navbar'
 
 function App() {
   const [count, setCount] = useState(0)
 
   return (
     <>
-      <p className='text-red-600'>Hello world</p>
+      <div className="App">
+      <Navbar />
+      <main className="p-4">
+        <h1 className="text-3xl font-bold underline">
+          Welcome to ChatBox!
+        </h1>
+      </main>
+    </div>
     </>
   )
 }
