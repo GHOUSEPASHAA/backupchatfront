@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import './App.css'
 import Navbar from './Component/Navbar'
+import LandingPage from './LandingPage'
 
 function App() {
   const [count, setCount] = useState(0)
@@ -9,11 +10,8 @@ function App() {
     <>
       <div className="App">
       <Navbar />
-      <main className="p-4">
-        <h1 className="text-3xl font-bold underline">
-          Welcome to ChatBox!
-        </h1>
-      </main>
+    
+    <LandingPage />
     </div>
     </>
   )
