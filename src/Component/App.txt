@@ -1,17 +1,16 @@
-// App.jsx
+// App.js
 import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Home from "./Home";
 import SignIn from "./SignIn";
 import SignUp from "./SignUp";
-import Message from "./Message"; // Assuming this is your chat component
-import ProfilePage from "./ProfilePage";
+import Message from "./Message"; // Import the Message component
 
 const App = () => {
   const [authState, setAuthState] = useState({
     token: localStorage.getItem('token') || null,
     privateKey: localStorage.getItem('privateKey') || null,
-    isAuthenticated: !!localStorage.getItem('token'),
+    isAuthenticated: !!localStorage.getItem('token'), // Add isAuthenticated flag
     isLoading: false,
     error: null
   });
@@ -44,7 +43,6 @@ const App = () => {
   return (
     <Router>
       <Routes>
-        {/* Public Routes */}
         <Route 
           path="/" 
           element={<Home authState={authState} updateAuth={updateAuth} />} 
@@ -57,18 +55,6 @@ const App = () => {
           path="/signup" 
           element={<SignUp authState={authState} updateAuth={updateAuth} />} 
         />
-
-        {/* Protected Routes with inline check */}
-        <Route 
-          path="/profile" 
-          element={
-            authState.isAuthenticated ? (
-              <ProfilePage token={authState.token} />
-            ) : (
-              <Navigate to="/signin" replace />
-            )
-          } 
-        />
         <Route 
           path="/chat" 
           element={
@@ -79,8 +65,7 @@ const App = () => {
             )
           } 
         />
-
-        {/* Catch-all route */}
+        {/* Optional: Catch-all route for undefined paths */}
         <Route 
           path="*" 
           element={<Navigate to="/" replace />} 
