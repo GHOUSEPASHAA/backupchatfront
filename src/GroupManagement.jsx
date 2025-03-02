@@ -8,11 +8,23 @@ const safeRender = (value, fallback = "Unknown") => {
   return JSON.stringify(value);
 };
 
-const GroupManagement = ({ token, users, groups, setGroups, setSelectedChat, setChatType, currentUserId, showUserProfile }) => {
+const GroupManagement = ({ 
+  token, 
+  users, 
+  groups, 
+  setGroups, 
+  setSelectedChat, 
+  setChatType, 
+  currentUserId, 
+  showUserProfile,
+  showOnlyGroups,  // New prop
+  setShowOnlyGroups  // New prop
+}) => {
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [groupName, setGroupName] = useState("");
   const [selectedMembers, setSelectedMembers] = useState([]);
   const [editingGroupId, setEditingGroupId] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");  // New state for search
 
   const isGroupAdmin = (groupId) => {
     const group = groups.find((g) => g._id === groupId);
@@ -79,32 +91,47 @@ const GroupManagement = ({ token, users, groups, setGroups, setSelectedChat, set
     setEditingGroupId((prev) => (prev === groupId ? null : groupId));
   };
 
+  // Filter groups based on search query
+  const filteredGroups = groups.filter(group => 
+    safeRender(group.name).toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Filter users based on search query (when not in groups-only mode)
+  const filteredUsers = users.filter(user => 
+    safeRender(user.name).toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <>
       <div className="p-4 border-b border-gray-200 space-y-3">
         <input
           type="text"
-          placeholder="Search..."
+          placeholder={showOnlyGroups ? "Search groups..." : "Search..."}
           className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
         />
-        <button
-          onClick={() => setShowCreateGroup(true)}
-          className="w-full p-2 bg-gradient-to-r from-blue-400 to-blue-600 text-white rounded-lg hover:from-blue-500 hover:to-blue-600"
-        >
-          Create New Group
-        </button>
+        {!showOnlyGroups && (
+          <button
+            onClick={() => setShowCreateGroup(true)}
+            className="w-full p-2 bg-gradient-to-r from-blue-400 to-blue-600 text-white rounded-lg hover:from-blue-500 hover:to-blue-600"
+          >
+            Create New Group
+          </button>
+        )}
       </div>
       <div className="overflow-y-auto h-[calc(100vh-200px)]">
-        {groups.length > 0 && (
+        {filteredGroups.length > 0 && (
           <div className="p-2">
             <h2 className="text-sm font-semibold text-gray-500 px-4 mb-2">Groups</h2>
-            {groups.map((group) => (
+            {filteredGroups.map((group) => (
               <div key={group._id} className="p-4">
                 <div
                   className="flex items-center hover:bg-gray-50 cursor-pointer"
                   onClick={() => {
                     setSelectedChat(group._id);
                     setChatType("group");
+                    if (showOnlyGroups) setShowOnlyGroups(false); // Reset view when selecting a chat
                   }}
                 >
                   <div className="w-10 h-10 bg-gradient-to-r from-blue-400 to-blue-500 rounded-full flex items-center justify-center">
@@ -114,7 +141,7 @@ const GroupManagement = ({ token, users, groups, setGroups, setSelectedChat, set
                     <p className="text-gray-800 font-medium">{safeRender(group.name)}</p>
                     <p className="text-sm text-gray-500">{group.members.length} members</p>
                   </div>
-                  {isGroupAdmin(group._id) && (
+                  {isGroupAdmin(group._id) && !showOnlyGroups && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -126,7 +153,7 @@ const GroupManagement = ({ token, users, groups, setGroups, setSelectedChat, set
                     </button>
                   )}
                 </div>
-                {editingGroupId === group._id && isGroupAdmin(group._id) && (
+                {editingGroupId === group._id && isGroupAdmin(group._id) && !showOnlyGroups && (
                   <div className="mt-2 p-2 bg-gray-100 rounded">
                     <h4 className="text-sm font-semibold">Members</h4>
                     {group.members.map((member, index) => (
@@ -170,36 +197,39 @@ const GroupManagement = ({ token, users, groups, setGroups, setSelectedChat, set
             ))}
           </div>
         )}
-        <div className="p-2">
-          <h2 className="text-sm font-semibold text-gray-500 px-4 mb-2">Direct Messages</h2>
-          {users.map((user) => (
-            <div
-              key={user._id}
-              className="flex items-center p-4 hover:bg-gray-50 cursor-pointer"
-              onClick={() => {
-                setSelectedChat(user._id);
-                setChatType("user");
-              }}
-            >
-              <div 
-                className="w-10 h-10 bg-gradient-to-r from-blue-500 to-blue-400 rounded-full flex items-center justify-center hover:opacity-80"
-                onClick={(e) => {
-                  e.stopPropagation(); // Prevent chat selection when clicking avatar
-                  showUserProfile(user._id); // Show profile
+        
+        {!showOnlyGroups && (
+          <div className="p-2">
+            <h2 className="text-sm font-semibold text-gray-500 px-4 mb-2">Direct Messages</h2>
+            {filteredUsers.map((user) => (
+              <div
+                key={user._id}
+                className="flex items-center p-4 hover:bg-gray-50 cursor-pointer"
+                onClick={() => {
+                  setSelectedChat(user._id);
+                  setChatType("user");
                 }}
               >
-                <span className="text-white font-bold">{safeRender(user.name?.[0])}</span>
+                <div 
+                  className="w-10 h-10 bg-gradient-to-r from-blue-500 to-blue-400 rounded-full flex items-center justify-center hover:opacity-80"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    showUserProfile(user._id);
+                  }}
+                >
+                  <span className="text-white font-bold">{safeRender(user.name?.[0])}</span>
+                </div>
+                <div className="ml-4">
+                  <p className="text-gray-800 font-medium">{safeRender(user.name)}</p>
+                  <p className="text-sm text-gray-500">Last message preview...</p>
+                </div>
               </div>
-              <div className="ml-4">
-                <p className="text-gray-800 font-medium">{safeRender(user.name)}</p>
-                <p className="text-sm text-gray-500">Last message preview...</p>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {showCreateGroup && (
+      {showCreateGroup && !showOnlyGroups && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-96">
             <h2 className="text-xl font-bold mb-4">Create New Group</h2>

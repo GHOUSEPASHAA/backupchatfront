@@ -24,7 +24,8 @@ const Message = ({ token, privateKey }) => {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [notifications, setNotifications] = useState([]);
-  const [selectedUser, setSelectedUser] = useState(null); // Added for profile
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [showOnlyGroups, setShowOnlyGroups] = useState(false); // Added for groups-only view
   const socket = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -51,7 +52,6 @@ const Message = ({ token, privateKey }) => {
     return member?.canSendMessages === true;
   };
 
-  // Profile fetching function
   const showUserProfile = async (userId) => {
     try {
       const response = await axios.get(`http://localhost:3000/api/users/${userId}`, {
@@ -63,7 +63,6 @@ const Message = ({ token, privateKey }) => {
     }
   };
 
-  // Profile closing function
   const closeProfile = () => setSelectedUser(null);
 
   useEffect(() => {
@@ -263,7 +262,10 @@ const Message = ({ token, privateKey }) => {
             <UserIcon className="w-5 h-5" />
             <span className="text-xs">Profile</span>
           </button>
-          <button className="flex-shrink-0 flex flex-col items-center text-gray-700 font-semibold hover:text-blue-600">
+          <button 
+            className="flex-shrink-0 flex flex-col items-center text-gray-700 font-semibold hover:text-blue-600"
+            onClick={() => setShowOnlyGroups(true)}
+          >
             <UsersIcon className="w-5 h-5" />
             <span className="text-xs">Groups</span>
           </button>
@@ -284,7 +286,9 @@ const Message = ({ token, privateKey }) => {
           setSelectedChat={setSelectedChat}
           setChatType={setChatType}
           currentUserId={currentUserId}
-          showUserProfile={showUserProfile} // Pass profile function
+          showUserProfile={showUserProfile}
+          showOnlyGroups={showOnlyGroups}
+          setShowOnlyGroups={setShowOnlyGroups}
         />
       </div>
 
@@ -384,7 +388,6 @@ const Message = ({ token, privateKey }) => {
         </div>
       ))}
 
-      {/* User Profile Modal */}
       {selectedUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg w-80">
