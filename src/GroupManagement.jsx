@@ -17,14 +17,17 @@ const GroupManagement = ({
   setChatType, 
   currentUserId, 
   showUserProfile,
-  showOnlyGroups,  // New prop
-  setShowOnlyGroups  // New prop
+  showOnlyGroups,
+  setShowOnlyGroups,
+  showOnlyContacts,
+  setShowOnlyContacts,
+  lastMessageTimes // New prop for last message times
 }) => {
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [groupName, setGroupName] = useState("");
   const [selectedMembers, setSelectedMembers] = useState([]);
   const [editingGroupId, setEditingGroupId] = useState(null);
-  const [searchQuery, setSearchQuery] = useState("");  // New state for search
+  const [searchQuery, setSearchQuery] = useState("");
 
   const isGroupAdmin = (groupId) => {
     const group = groups.find((g) => g._id === groupId);
@@ -91,12 +94,15 @@ const GroupManagement = ({
     setEditingGroupId((prev) => (prev === groupId ? null : groupId));
   };
 
-  // Filter groups based on search query
+  const getLastMessageTime = (userId) => {
+    const lastMessage = lastMessageTimes.find((lm) => lm.userId === userId);
+    return lastMessage ? new Date(lastMessage.lastMessageTime).toLocaleTimeString() : "No messages yet";
+  };
+
   const filteredGroups = groups.filter(group => 
     safeRender(group.name).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Filter users based on search query (when not in groups-only mode)
   const filteredUsers = users.filter(user => 
     safeRender(user.name).toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -106,12 +112,16 @@ const GroupManagement = ({
       <div className="p-4 border-b border-gray-200 space-y-3">
         <input
           type="text"
-          placeholder={showOnlyGroups ? "Search groups..." : "Search..."}
+          placeholder={
+            showOnlyGroups ? "Search groups..." : 
+            showOnlyContacts ? "Search contacts..." : 
+            "Search..."
+          }
           className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
-        {!showOnlyGroups && (
+        {!showOnlyGroups && !showOnlyContacts && (
           <button
             onClick={() => setShowCreateGroup(true)}
             className="w-full p-2 bg-gradient-to-r from-blue-400 to-blue-600 text-white rounded-lg hover:from-blue-500 hover:to-blue-600"
@@ -121,7 +131,7 @@ const GroupManagement = ({
         )}
       </div>
       <div className="overflow-y-auto h-[calc(100vh-200px)]">
-        {filteredGroups.length > 0 && (
+        {(showOnlyGroups || (!showOnlyGroups && !showOnlyContacts)) && filteredGroups.length > 0 && (
           <div className="p-2">
             <h2 className="text-sm font-semibold text-gray-500 px-4 mb-2">Groups</h2>
             {filteredGroups.map((group) => (
@@ -131,7 +141,8 @@ const GroupManagement = ({
                   onClick={() => {
                     setSelectedChat(group._id);
                     setChatType("group");
-                    if (showOnlyGroups) setShowOnlyGroups(false); // Reset view when selecting a chat
+                    setShowOnlyGroups(false);
+                    setShowOnlyContacts(false);
                   }}
                 >
                   <div className="w-10 h-10 bg-gradient-to-r from-blue-400 to-blue-500 rounded-full flex items-center justify-center">
@@ -198,7 +209,7 @@ const GroupManagement = ({
           </div>
         )}
         
-        {!showOnlyGroups && (
+        {(showOnlyContacts || (!showOnlyGroups && !showOnlyContacts)) && (
           <div className="p-2">
             <h2 className="text-sm font-semibold text-gray-500 px-4 mb-2">Direct Messages</h2>
             {filteredUsers.map((user) => (
@@ -208,6 +219,8 @@ const GroupManagement = ({
                 onClick={() => {
                   setSelectedChat(user._id);
                   setChatType("user");
+                  setShowOnlyContacts(false);
+                  setShowOnlyGroups(false);
                 }}
               >
                 <div 
@@ -221,7 +234,7 @@ const GroupManagement = ({
                 </div>
                 <div className="ml-4">
                   <p className="text-gray-800 font-medium">{safeRender(user.name)}</p>
-                  <p className="text-sm text-gray-500">Last message preview...</p>
+                  <p className="text-sm text-gray-500">{getLastMessageTime(user._id)}</p>
                 </div>
               </div>
             ))}
@@ -229,7 +242,7 @@ const GroupManagement = ({
         )}
       </div>
 
-      {showCreateGroup && !showOnlyGroups && (
+      {showCreateGroup && !showOnlyGroups && !showOnlyContacts && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-96">
             <h2 className="text-xl font-bold mb-4">Create New Group</h2>

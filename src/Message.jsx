@@ -20,14 +20,18 @@ const Message = ({ token, privateKey }) => {
   const [users, setUsers] = useState([]);
   const [groups, setGroups] = useState([]);
   const [messages, setMessages] = useState([]);
+  const [lastMessageTimes, setLastMessageTimes] = useState([]); // State for last message times (text only)
   const [message, setMessage] = useState("");
   const [currentUserId, setCurrentUserId] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [showOnlyGroups, setShowOnlyGroups] = useState(false); // Added for groups-only view
+  const [showOnlyGroups, setShowOnlyGroups] = useState(false);
+  const [showOnlyContacts, setShowOnlyContacts] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const socket = useRef(null);
   const fileInputRef = useRef(null);
+  const notificationsRef = useRef(null);
 
   const decryptMessage = (encryptedContent, plaintextContent, isPrivate, senderId, currentUserId) => {
     if (!isPrivate || senderId === currentUserId) return safeRender(plaintextContent);
@@ -65,6 +69,18 @@ const Message = ({ token, privateKey }) => {
 
   const closeProfile = () => setSelectedUser(null);
 
+  // Handle clicking outside to close notifications dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (notificationsRef.current && !notificationsRef.current.contains(event.target)) {
+        setShowNotifications(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Fetch initial data and set up socket
   useEffect(() => {
     if (token && !socket.current) {
       socket.current = io("http://localhost:3000", { auth: { token }, forceNew: true });
@@ -73,6 +89,7 @@ const Message = ({ token, privateKey }) => {
       socket.current.on("userId", (userId) => {
         setCurrentUserId(userId);
         socket.current.userId = userId;
+        console.log("Current user ID set:", userId);
       });
 
       socket.current.on("chatMessage", (msg) => {
@@ -96,22 +113,55 @@ const Message = ({ token, privateKey }) => {
           const senderName = safeRender(msg.sender?.name, "Someone");
           const notificationText = msg.file ? `${senderName} sent a file` : `${senderName}: ${content}`;
           const notificationId = Date.now();
-          setNotifications((prev) => [...prev, { id: notificationId, text: notificationText }]);
-          setTimeout(() => setNotifications((prev) => prev.filter((n) => n.id !== notificationId)), 5000);
+          setNotifications((prev) => [
+            ...prev,
+            { id: notificationId, text: notificationText, read: false, timestamp: new Date() },
+          ]);
+          // Update last message time for private text messages only
+          if (isPrivate && !msg.file) {
+            setLastMessageTimes((prev) => {
+              const updated = prev.filter((lm) => lm.userId !== safeRender(msg.sender?._id || msg.sender));
+              return [...updated, { userId: safeRender(msg.sender?._id || msg.sender), lastMessageTime: msg.timestamp }];
+            });
+          }
         }
       });
 
       socket.current.on("error", (error) => console.error("Socket error:", error.message));
 
+      // Fetch users
       axios
         .get("http://localhost:3000/api/users", { headers: { Authorization: token } })
-        .then((res) => setUsers(res.data))
+        .then((res) => {
+          console.log("Users fetched:", res.data);
+          setUsers(res.data);
+        })
         .catch((err) => console.error("Error fetching users:", err));
 
+      // Fetch groups
       axios
         .get("http://localhost:3000/api/groups", { headers: { Authorization: token } })
-        .then((res) => setGroups(res.data))
+        .then((res) => {
+          console.log("Groups fetched:", res.data);
+          setGroups(res.data);
+        })
         .catch((err) => console.error("Error fetching groups:", err));
+
+      // Fetch last message times (text messages only)
+      axios
+        .get("http://localhost:3000/api/messages/last-messages", { headers: { Authorization: token } })
+        .then((res) => {
+          const formattedTimes = res.data.map((msg) => ({
+            userId: msg.userId.toString(), // Ensure string consistency
+            lastMessageTime: msg.lastMessageTime
+          }));
+          console.log("Last message times fetched:", formattedTimes);
+          setLastMessageTimes(formattedTimes);
+        })
+        .catch((err) => {
+          console.error("Error fetching last message times:", err.response?.data || err.message);
+          setLastMessageTimes([]);
+        });
     }
 
     return () => {
@@ -171,7 +221,10 @@ const Message = ({ token, privateKey }) => {
     if (!socket.current || (!message.trim() && !selectedFile)) return;
 
     if (chatType === "group" && !canSendInGroup(selectedChat)) {
-      setNotifications((prev) => [...prev, { id: Date.now(), text: "No permission to send" }]);
+      setNotifications((prev) => [
+        ...prev,
+        { id: Date.now(), text: "No permission to send", read: false, timestamp: new Date() },
+      ]);
       return;
     }
 
@@ -230,6 +283,17 @@ const Message = ({ token, privateKey }) => {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const markNotificationAsRead = (id) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+    );
+  };
+
+  const clearAllNotifications = () => {
+    setNotifications([]);
+    setShowNotifications(false);
+  };
+
   const renderMessageContent = (msg) => {
     if (!msg || !msg.content) return <div>[Invalid Message]</div>;
     if (msg.content.type === "file") {
@@ -250,6 +314,8 @@ const Message = ({ token, privateKey }) => {
     return <p>{safeRender(msg.content)}</p>;
   };
 
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
   return (
     <div className="min-h-screen bg-gray-50 flex overflow-hidden relative">
       {/* Contact List */}
@@ -258,23 +324,37 @@ const Message = ({ token, privateKey }) => {
           <h1 className="text-2xl font-bold text-white">Chats</h1>
         </div>
         <div className="flex items-center space-x-12 overflow-x-auto bg-white border-b border-gray-200 px-4 py-2">
-          <button className="flex-shrink-0 flex flex-col items-center text-gray-700 font-semibold hover:text-blue-600">
+          <button 
+            className="flex-shrink-0 flex flex-col items-center text-gray-700 font-semibold hover:text-blue-600"
+            onClick={() => { setShowOnlyGroups(false); setShowOnlyContacts(false); }}
+          >
             <UserIcon className="w-5 h-5" />
-            <span className="text-xs">Profile</span>
+            <span className="text-xs">All</span>
           </button>
           <button 
             className="flex-shrink-0 flex flex-col items-center text-gray-700 font-semibold hover:text-blue-600"
-            onClick={() => setShowOnlyGroups(true)}
+            onClick={() => { setShowOnlyGroups(true); setShowOnlyContacts(false); }}
           >
             <UsersIcon className="w-5 h-5" />
             <span className="text-xs">Groups</span>
           </button>
-          <button className="flex-shrink-0 flex flex-col items-center text-gray-700 font-semibold hover:text-blue-600">
+          <button 
+            className="flex-shrink-0 flex flex-col items-center text-gray-700 font-semibold hover:text-blue-600"
+            onClick={() => { setShowOnlyContacts(true); setShowOnlyGroups(false); }}
+          >
             <PhoneIcon className="w-5 h-5" />
             <span className="text-xs">Contacts</span>
           </button>
-          <button className="flex-shrink-0 flex flex-col items-center text-gray-700 font-semibold hover:text-blue-600">
+          <button 
+            className="relative flex-shrink-0 flex flex-col items-center text-gray-700 font-semibold hover:text-blue-600"
+            onClick={() => setShowNotifications(!showNotifications)}
+          >
             <BellIcon className="w-5 h-5" />
+            {unreadCount > 0 && (
+              <span className="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+                {unreadCount}
+              </span>
+            )}
             <span className="text-xs">Notifications</span>
           </button>
         </div>
@@ -289,6 +369,9 @@ const Message = ({ token, privateKey }) => {
           showUserProfile={showUserProfile}
           showOnlyGroups={showOnlyGroups}
           setShowOnlyGroups={setShowOnlyGroups}
+          showOnlyContacts={showOnlyContacts}
+          setShowOnlyContacts={setShowOnlyContacts}
+          lastMessageTimes={lastMessageTimes}
         />
       </div>
 
@@ -382,8 +465,51 @@ const Message = ({ token, privateKey }) => {
         setNotifications={setNotifications}
       />
 
-      {notifications.map((notification) => (
-        <div key={notification.id} className="fixed top-4 right-4 bg-white p-4 rounded-lg shadow-lg z-50">
+      {/* Notifications Dropdown */}
+      {showNotifications && (
+        <div ref={notificationsRef} className="absolute top-16 right-4 w-80 bg-white rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
+          <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+            <h3 className="text-lg font-semibold">Notifications</h3>
+            <button 
+              onClick={clearAllNotifications}
+              className="text-sm text-red-500 hover:text-red-700"
+            >
+              Clear All
+            </button>
+          </div>
+          {notifications.length === 0 ? (
+            <p className="p-4 text-gray-500">No notifications</p>
+          ) : (
+            notifications.slice().reverse().map((notification) => (
+              <div 
+                key={notification.id} 
+                className={`p-4 border-b border-gray-200 flex justify-between items-center ${notification.read ? "bg-gray-100" : "bg-white"}`}
+              >
+                <div>
+                  <p className={notification.read ? "text-gray-600" : "text-gray-800 font-medium"}>
+                    {notification.text}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {new Date(notification.timestamp).toLocaleTimeString()}
+                  </p>
+                </div>
+                {!notification.read && (
+                  <button
+                    onClick={() => markNotificationAsRead(notification.id)}
+                    className="text-blue-500 hover:text-blue-700 text-sm"
+                  >
+                    Mark as Read
+                  </button>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* Existing Pop-up Notifications */}
+      {notifications.filter((n) => !n.read).map((notification) => (
+        <div key={notification.id} className="fixed top-4 right-4 bg-white p-4 rounded-lg shadow-lg z-40">
           <p>{notification.text}</p>
         </div>
       ))}
