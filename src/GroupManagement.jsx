@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 
 const safeRender = (value, fallback = "Unknown") => {
@@ -21,7 +21,8 @@ const GroupManagement = ({
   setShowOnlyGroups,
   showOnlyContacts,
   setShowOnlyContacts,
-  lastMessageTimes
+  lastMessageTimes,
+  socket,
 }) => {
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [groupName, setGroupName] = useState("");
@@ -44,7 +45,7 @@ const GroupManagement = ({
             selectedMembers.map((userId) =>
               axios.put(
                 `http://localhost:3000/api/groups/${groupId}/members`,
-                { userId, canSendMessages: true },
+                { userId, canSendMessages: true, canCall: true }, // Added canCall
                 { headers: { Authorization: token } }
               )
             )
@@ -64,10 +65,13 @@ const GroupManagement = ({
     const canSendMessages = window.confirm(
       `Allow ${safeRender(users.find((u) => u._id === userId)?.name, userId)} to send messages?`
     );
+    const canCall = window.confirm(
+      `Allow ${safeRender(users.find((u) => u._id === userId)?.name, userId)} to make calls?`
+    );
     try {
       const response = await axios.put(
         `http://localhost:3000/api/groups/${groupId}/members`,
-        { userId, canSendMessages },
+        { userId, canSendMessages, canCall }, // Added canCall
         { headers: { Authorization: token } }
       );
       setGroups((prev) => prev.map((g) => (g._id === groupId ? response.data : g)));
@@ -76,12 +80,12 @@ const GroupManagement = ({
     }
   };
 
-  const updateGroupPermissions = async (groupId, userId, canSendMessages) => {
+  const updateGroupPermissions = async (groupId, userId, canSendMessages, canCall) => {
     if (!groupId || !userId) return;
     try {
       const response = await axios.put(
         `http://localhost:3000/api/groups/${groupId}/permissions`,
-        { userId, canSendMessages },
+        { userId, canSendMessages, canCall }, // Added canCall
         { headers: { Authorization: token } }
       );
       setGroups((prev) => prev.map((g) => (g._id === groupId ? response.data : g)));
@@ -99,11 +103,11 @@ const GroupManagement = ({
     return lastMessage ? new Date(lastMessage.lastMessageTime).toLocaleTimeString() : "No messages yet";
   };
 
-  const filteredGroups = groups.filter(group =>
+  const filteredGroups = groups.filter((group) =>
     safeRender(group.name).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const filteredUsers = users.filter(user =>
+  const filteredUsers = users.filter((user) =>
     safeRender(user.name).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -153,15 +157,17 @@ const GroupManagement = ({
                     <p className="text-xs sm:text-sm text-gray-500">{group.members.length} members</p>
                   </div>
                   {isGroupAdmin(group._id) && !showOnlyGroups && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleEditGroup(group._id);
-                      }}
-                      className={`px-2 py-1 rounded text-xs sm:text-sm ${editingGroupId === group._id ? "bg-red-500 text-white" : "bg-yellow-400 text-black"}`}
-                    >
-                      {editingGroupId === group._id ? "Close" : "Edit"}
-                    </button>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleEditGroup(group._id);
+                        }}
+                        className={`px-2 py-1 rounded text-xs sm:text-sm ${editingGroupId === group._id ? "bg-red-500 text-white" : "bg-yellow-400 text-black"}`}
+                      >
+                        {editingGroupId === group._id ? "Close" : "Edit"}
+                      </button>
+                    </div>
                   )}
                 </div>
                 {editingGroupId === group._id && isGroupAdmin(group._id) && !showOnlyGroups && (
@@ -175,15 +181,40 @@ const GroupManagement = ({
                         <span>
                           {safeRender(users.find((u) => u._id === safeRender(member.userId?._id || member.userId))?.name, member.userId)}
                         </span>
-                        <label className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={member.canSendMessages || false}
-                            onChange={(e) => updateGroupPermissions(group._id, safeRender(member.userId?._id || member.userId), e.target.checked)}
-                            disabled={safeRender(member.userId?._id || member.userId) === currentUserId}
-                          />
-                          <span className="ml-1 text-xs sm:text-sm">Can Send</span>
-                        </label>
+                        <div className="flex space-x-4">
+                          <label className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={member.canSendMessages || false}
+                              onChange={(e) =>
+                                updateGroupPermissions(
+                                  group._id,
+                                  safeRender(member.userId?._id || member.userId),
+                                  e.target.checked,
+                                  member.canCall || false
+                                )
+                              }
+                              disabled={safeRender(member.userId?._id || member.userId) === currentUserId}
+                            />
+                            <span className="ml-1 text-xs sm:text-sm">Can Send</span>
+                          </label>
+                          <label className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={member.canCall || false}
+                              onChange={(e) =>
+                                updateGroupPermissions(
+                                  group._id,
+                                  safeRender(member.userId?._id || member.userId),
+                                  member.canSendMessages || false,
+                                  e.target.checked
+                                )
+                              }
+                              disabled={safeRender(member.userId?._id || member.userId) === currentUserId}
+                            />
+                            <span className="ml-1 text-xs sm:text-sm">Can Call</span>
+                          </label>
+                        </div>
                       </div>
                     ))}
                     <h4 className="text-xs sm:text-sm font-semibold mt-2">Add Member</h4>
@@ -208,7 +239,6 @@ const GroupManagement = ({
             ))}
           </div>
         )}
-
         {(showOnlyContacts || (!showOnlyGroups && !showOnlyContacts)) && (
           <div className="p-2">
             <h2 className="text-xs sm:text-sm font-semibold text-gray-500 px-2 sm:px-4 mb-2">Direct Messages</h2>
