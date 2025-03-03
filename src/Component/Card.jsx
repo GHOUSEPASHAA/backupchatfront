@@ -3,12 +3,18 @@ import React from "react";
 
 export const Card = ({ children, className }) => {
   return (
-    <div className={`bg-white rounded-lg shadow-lg p-4 ${className}`}>
+    <div
+      className={`bg-white rounded-lg shadow-md sm:shadow-lg p-3 sm:p-4 md:p-6 ${className}`}
+    >
       {children}
     </div>
   );
 };
 
 export const CardContent = ({ children, className }) => {
-  return <div className={`p-2 ${className}`}>{children}</div>;
+  return (
+    <div className={`p-1 sm:p-2 md:p-3 ${className}`}>
+      {children}
+    </div>
+  );
 };

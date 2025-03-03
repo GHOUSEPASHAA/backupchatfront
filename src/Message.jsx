@@ -6,7 +6,6 @@ import { UserIcon, UsersIcon, PhoneIcon, BellIcon } from "@heroicons/react/24/ou
 import GroupManagement from "./GroupManagement";
 import CallHandler from "./CallHandler";
 
-// Utility function
 const safeRender = (value, fallback = "Unknown") => {
   if (value === null || value === undefined) return fallback;
   if (typeof value === "string") return value;
@@ -20,7 +19,7 @@ const Message = ({ token, privateKey }) => {
   const [users, setUsers] = useState([]);
   const [groups, setGroups] = useState([]);
   const [messages, setMessages] = useState([]);
-  const [lastMessageTimes, setLastMessageTimes] = useState([]); // State for last message times (text only)
+  const [lastMessageTimes, setLastMessageTimes] = useState([]);
   const [message, setMessage] = useState("");
   const [currentUserId, setCurrentUserId] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -29,6 +28,7 @@ const Message = ({ token, privateKey }) => {
   const [showOnlyGroups, setShowOnlyGroups] = useState(false);
   const [showOnlyContacts, setShowOnlyContacts] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Toggle sidebar on mobile
   const socket = useRef(null);
   const fileInputRef = useRef(null);
   const notificationsRef = useRef(null);
@@ -69,7 +69,7 @@ const Message = ({ token, privateKey }) => {
 
   const closeProfile = () => setSelectedUser(null);
 
-  // Handle clicking outside to close notifications dropdown
+  // Handle clicking outside notifications dropdown
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (notificationsRef.current && !notificationsRef.current.contains(event.target)) {
@@ -84,7 +84,6 @@ const Message = ({ token, privateKey }) => {
   useEffect(() => {
     if (token && !socket.current) {
       socket.current = io("http://localhost:3000", { auth: { token }, forceNew: true });
-
       socket.current.on("connect", () => console.log("Connected:", socket.current.id));
       socket.current.on("userId", (userId) => {
         setCurrentUserId(userId);
@@ -117,7 +116,6 @@ const Message = ({ token, privateKey }) => {
             ...prev,
             { id: notificationId, text: notificationText, read: false, timestamp: new Date() },
           ]);
-          // Update last message time for private text messages only
           if (isPrivate && !msg.file) {
             setLastMessageTimes((prev) => {
               const updated = prev.filter((lm) => lm.userId !== safeRender(msg.sender?._id || msg.sender));
@@ -129,39 +127,23 @@ const Message = ({ token, privateKey }) => {
 
       socket.current.on("error", (error) => console.error("Socket error:", error.message));
 
-      // Fetch users
-      axios
-        .get("http://localhost:3000/api/users", { headers: { Authorization: token } })
-        .then((res) => {
-          console.log("Users fetched:", res.data);
-          setUsers(res.data);
-        })
+      axios.get("http://localhost:3000/api/users", { headers: { Authorization: token } })
+        .then((res) => setUsers(res.data))
         .catch((err) => console.error("Error fetching users:", err));
 
-      // Fetch groups
-      axios
-        .get("http://localhost:3000/api/groups", { headers: { Authorization: token } })
-        .then((res) => {
-          console.log("Groups fetched:", res.data);
-          setGroups(res.data);
-        })
+      axios.get("http://localhost:3000/api/groups", { headers: { Authorization: token } })
+        .then((res) => setGroups(res.data))
         .catch((err) => console.error("Error fetching groups:", err));
 
-      // Fetch last message times (text messages only)
-      axios
-        .get("http://localhost:3000/api/messages/last-messages", { headers: { Authorization: token } })
+      axios.get("http://localhost:3000/api/messages/last-messages", { headers: { Authorization: token } })
         .then((res) => {
           const formattedTimes = res.data.map((msg) => ({
-            userId: msg.userId.toString(), // Ensure string consistency
+            userId: msg.userId.toString(),
             lastMessageTime: msg.lastMessageTime
           }));
-          console.log("Last message times fetched:", formattedTimes);
           setLastMessageTimes(formattedTimes);
         })
-        .catch((err) => {
-          console.error("Error fetching last message times:", err.response?.data || err.message);
-          setLastMessageTimes([]);
-        });
+        .catch((err) => console.error("Error fetching last message times:", err));
     }
 
     return () => {
@@ -317,36 +299,48 @@ const Message = ({ token, privateKey }) => {
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex overflow-hidden relative">
-      {/* Contact List */}
-      <div className={`w-full md:w-1/4 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out`}>
-        <div className="p-6 bg-gradient-to-r from-blue-400 to-blue-600 flex items-center">
-          <h1 className="text-2xl font-bold text-white">Chats</h1>
+    <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row overflow-hidden">
+      {/* Contact List (Sidebar) */}
+      <div
+        className={`fixed inset-y-0 left-0 z-40 w-3/4 sm:w-1/2 md:w-1/4 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out md:static md:translate-x-0 ${
+          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="p-4 sm:p-6 bg-gradient-to-r from-blue-400 to-blue-600 flex items-center">
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Chats</h1>
+          <button
+            className="ml-auto text-white md:hidden"
+            onClick={() => setIsSidebarOpen(false)}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
-        <div className="flex items-center space-x-12 overflow-x-auto bg-white border-b border-gray-200 px-4 py-2">
-          <button 
-            className="flex-shrink-0 flex flex-col items-center text-gray-700 font-semibold hover:text-blue-600"
+        <div className="flex flex-row space-x-4 sm:space-x-12 overflow-x-auto bg-white border-b border-gray-200 px-4 py-2">
+          <button
+            className="flex flex-col items-center text-gray-700 font-semibold hover:text-blue-600"
             onClick={() => { setShowOnlyGroups(false); setShowOnlyContacts(false); }}
           >
             <UserIcon className="w-5 h-5" />
             <span className="text-xs">All</span>
           </button>
-          <button 
-            className="flex-shrink-0 flex flex-col items-center text-gray-700 font-semibold hover:text-blue-600"
+          <button
+            className="flex flex-col items-center text-gray-700 font-semibold hover:text-blue-600"
             onClick={() => { setShowOnlyGroups(true); setShowOnlyContacts(false); }}
           >
             <UsersIcon className="w-5 h-5" />
             <span className="text-xs">Groups</span>
           </button>
-          <button 
-            className="flex-shrink-0 flex flex-col items-center text-gray-700 font-semibold hover:text-blue-600"
+          <button
+            className="flex flex-col items-center text-gray-700 font-semibold hover:text-blue-600"
             onClick={() => { setShowOnlyContacts(true); setShowOnlyGroups(false); }}
           >
             <PhoneIcon className="w-5 h-5" />
             <span className="text-xs">Contacts</span>
           </button>
-          <button 
-            className="relative flex-shrink-0 flex flex-col items-center text-gray-700 font-semibold hover:text-blue-600"
+          <button
+            className="relative flex flex-col items-center text-gray-700 font-semibold hover:text-blue-600"
             onClick={() => setShowNotifications(!showNotifications)}
           >
             <BellIcon className="w-5 h-5" />
@@ -358,7 +352,7 @@ const Message = ({ token, privateKey }) => {
             <span className="text-xs">Notifications</span>
           </button>
         </div>
-        <GroupManagement 
+        <GroupManagement
           token={token}
           users={users}
           groups={groups}
@@ -376,41 +370,54 @@ const Message = ({ token, privateKey }) => {
       </div>
 
       {/* Chat View */}
-      <div className={`w-full md:w-3/4 bg-gray-50 absolute md:static inset-0 transform transition-transform duration-300 ease-in-out`}>
-        <div className="p-6 bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-between">
+      <div className="flex-1 bg-gray-50 relative">
+        <div className="p-4 sm:p-6 bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-between">
           <div className="flex items-center">
-            <button className="md:hidden text-white mr-4" onClick={() => { setSelectedChat(null); setChatType(null); }}>
+            <button
+              className="text-white mr-4 md:hidden"
+              onClick={() => setIsSidebarOpen(true)}
+            >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
               </svg>
             </button>
             <div>
-              <h1 className="text-2xl font-bold text-white">
+              <h1 className="text-xl sm:text-2xl font-bold text-white">
                 {selectedChat ? (chatType === "user" ? safeRender(users.find((u) => u._id === selectedChat)?.name) : safeRender(groups.find((g) => g._id === selectedChat)?.name)) : "Select a Chat"}
               </h1>
             </div>
           </div>
+          {selectedChat && (
+            <button
+              className="text-white md:hidden"
+              onClick={() => { setSelectedChat(null); setChatType(null); }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          )}
         </div>
 
-        <div className="p-6 overflow-y-auto h-[calc(100vh-192px)]">
+        <div className="p-4 sm:p-6 overflow-y-auto h-[calc(100vh-192px)] sm:h-[calc(100vh-208px)]">
           {selectedChat ? (
             <>
               <div className="flex justify-center mb-4">
                 <div className="bg-gray-200 px-4 py-2 rounded-lg">
-                  <p className="text-sm text-gray-600">
+                  <p className="text-xs sm:text-sm text-gray-600">
                     {chatType === "user" ? `${safeRender(users.find((u) => u._id === selectedChat)?.name)} joined the chat` : `Group "${safeRender(groups.find((g) => g._id === selectedChat)?.name)}" created`}
                   </p>
                 </div>
               </div>
-              {messages.filter((msg) => chatType === "user" ? 
-                ((msg.recipient === selectedChat && msg.sender._id === currentUserId) || (msg.recipient === currentUserId && msg.sender._id === selectedChat)) : 
+              {messages.filter((msg) => chatType === "user" ?
+                ((msg.recipient === selectedChat && msg.sender._id === currentUserId) || (msg.recipient === currentUserId && msg.sender._id === selectedChat)) :
                 msg.group === selectedChat).map((msg, index) => {
                 const senderName = safeRender(users.find((u) => u._id === safeRender(msg.sender?._id || msg.sender))?.name, "Unknown");
                 const receiverName = chatType === "user" ? safeRender(users.find((u) => u._id === (msg.recipient === currentUserId ? selectedChat : msg.recipient))?.name, "Unknown") : safeRender(groups.find((g) => g._id === selectedChat)?.name, "Group");
 
                 return (
                   <div key={msg._id || msg.tempId || `msg-${index}`} className={`flex mb-4 ${msg.sender._id === currentUserId ? "justify-end" : "justify-start"}`}>
-                    <div className={`flex flex-col ${msg.sender._id === currentUserId ? "items-end" : "items-start"} max-w-[60%]`}>
+                    <div className={`flex flex-col ${msg.sender._id === currentUserId ? "items-end" : "items-start"} max-w-[80%] sm:max-w-[60%]`}>
                       <div className={`text-xs mb-1 ${msg.sender._id === currentUserId ? "text-gray-600" : "text-gray-500"}`}>
                         {chatType === "user" ? (<><span>{senderName}</span> → <span>{receiverName}</span></>) : (<span>{senderName}</span>)}
                       </div>
@@ -426,35 +433,44 @@ const Message = ({ token, privateKey }) => {
               })}
             </>
           ) : (
-            <div className="flex items-center justify-center h-full text-gray-500">
+            <div className="flex items-center justify-center h-full text-gray-500 text-sm sm:text-base">
               Select a chat to start messaging
             </div>
           )}
         </div>
         {selectedChat && (
-          <div className="p-4 bg-white border-t border-gray-200">
-            <div className="flex items-center">
-              <input type="file" ref={fileInputRef} onChange={handleFileChange} className="text-gray-500 mr-2" />
-              <input
-                type="text"
-                placeholder="Type a message or select a file..."
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && sendMessage()}
-                className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                disabled={selectedFile !== null}
-              />
-              <button onClick={sendMessage} className="ml-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white p-2 rounded-lg hover:from-blue-600 hover:to-blue-700">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        )}
+  <div className="p-4 bg-white border-t border-gray-200 fixed bottom-0 left-0 right-0 md:static">
+    <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        onChange={handleFileChange} 
+        className="text-gray-500 text-sm w-full sm:w-auto"
+      />
+      <input
+        type="text"
+        placeholder="Type a message or select a file..."
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        onKeyPress={(e) => e.key === "Enter" && sendMessage()}
+        className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-sm sm:text-base"
+        disabled={selectedFile !== null}
+      />
+      <button 
+        onClick={sendMessage} 
+        className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-blue-600 text-white p-2 rounded-lg hover:from-blue-600 hover:to-blue-700 flex justify-center"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+        </svg>
+      </button>
+    </div>
+  </div>
+)}
+
       </div>
 
-      <CallHandler 
+      <CallHandler
         socket={socket}
         token={token}
         users={users}
@@ -467,26 +483,26 @@ const Message = ({ token, privateKey }) => {
 
       {/* Notifications Dropdown */}
       {showNotifications && (
-        <div ref={notificationsRef} className="absolute top-16 right-4 w-80 bg-white rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
+        <div ref={notificationsRef} className="absolute top-16 right-2 sm:right-4 w-64 sm:w-80 bg-white rounded-lg shadow-lg z-50 max-h-80 sm:max-h-96 overflow-y-auto">
           <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-            <h3 className="text-lg font-semibold">Notifications</h3>
-            <button 
+            <h3 className="text-base sm:text-lg font-semibold">Notifications</h3>
+            <button
               onClick={clearAllNotifications}
-              className="text-sm text-red-500 hover:text-red-700"
+              className="text-xs sm:text-sm text-red-500 hover:text-red-700"
             >
               Clear All
             </button>
           </div>
           {notifications.length === 0 ? (
-            <p className="p-4 text-gray-500">No notifications</p>
+            <p className="p-4 text-gray-500 text-sm">No notifications</p>
           ) : (
             notifications.slice().reverse().map((notification) => (
-              <div 
-                key={notification.id} 
-                className={`p-4 border-b border-gray-200 flex justify-between items-center ${notification.read ? "bg-gray-100" : "bg-white"}`}
+              <div
+                key={notification.id}
+                className={`p-3 sm:p-4 border-b border-gray-200 flex justify-between items-center ${notification.read ? "bg-gray-100" : "bg-white"}`}
               >
                 <div>
-                  <p className={notification.read ? "text-gray-600" : "text-gray-800 font-medium"}>
+                  <p className={notification.read ? "text-gray-600 text-sm" : "text-gray-800 font-medium text-sm sm:text-base"}>
                     {notification.text}
                   </p>
                   <p className="text-xs text-gray-500">
@@ -496,7 +512,7 @@ const Message = ({ token, privateKey }) => {
                 {!notification.read && (
                   <button
                     onClick={() => markNotificationAsRead(notification.id)}
-                    className="text-blue-500 hover:text-blue-700 text-sm"
+                    className="text-blue-500 hover:text-blue-700 text-xs sm:text-sm"
                   >
                     Mark as Read
                   </button>
@@ -507,32 +523,33 @@ const Message = ({ token, privateKey }) => {
         </div>
       )}
 
-      {/* Existing Pop-up Notifications */}
+      {/* Pop-up Notifications */}
       {notifications.filter((n) => !n.read).map((notification) => (
-        <div key={notification.id} className="fixed top-4 right-4 bg-white p-4 rounded-lg shadow-lg z-40">
-          <p>{notification.text}</p>
+        <div key={notification.id} className="fixed top-2 sm:top-4 right-2 sm:right-4 bg-white p-3 sm:p-4 rounded-lg shadow-lg z-40 max-w-[80%] sm:max-w-xs">
+          <p className="text-sm">{notification.text}</p>
         </div>
       ))}
 
+      {/* User Profile Modal */}
       {selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-80">
-            <h3 className="text-xl font-bold mb-4">User Profile</h3>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white p-4 sm:p-6 rounded-lg shadow-lg w-full max-w-sm">
+            <h3 className="text-lg sm:text-xl font-bold mb-4">User Profile</h3>
             {selectedUser.image && (
               <img
                 src={`http://localhost:3000/uploads/${selectedUser.image}`}
                 alt={`${safeRender(selectedUser.name)}'s profile`}
-                className="w-24 h-24 rounded-full mb-4 object-cover"
+                className="w-20 h-20 sm:w-24 sm:h-24 rounded-full mb-4 object-cover mx-auto"
               />
             )}
-            <p><strong>Name:</strong> {safeRender(selectedUser.name)}</p>
-            <p><strong>Email:</strong> {safeRender(selectedUser.email)}</p>
-            <p><strong>Location:</strong> {safeRender(selectedUser.location, "Not specified")}</p>
-            <p><strong>Designation:</strong> {safeRender(selectedUser.designation, "Not specified")}</p>
-            <p><strong>Status:</strong> {safeRender(selectedUser.status)}</p>
-            <button 
-              onClick={closeProfile} 
-              className="mt-4 w-full bg-red-500 text-white p-2 rounded-lg hover:bg-red-600"
+            <p className="text-sm sm:text-base"><strong>Name:</strong> {safeRender(selectedUser.name)}</p>
+            <p className="text-sm sm:text-base"><strong>Email:</strong> {safeRender(selectedUser.email)}</p>
+            <p className="text-sm sm:text-base"><strong>Location:</strong> {safeRender(selectedUser.location, "Not specified")}</p>
+            <p className="text-sm sm:text-base"><strong>Designation:</strong> {safeRender(selectedUser.designation, "Not specified")}</p>
+            <p className="text-sm sm:text-base"><strong>Status:</strong> {safeRender(selectedUser.status)}</p>
+            <button
+              onClick={closeProfile}
+              className="mt-4 w-full bg-red-500 text-white p-2 rounded-lg hover:bg-red-600 text-sm sm:text-base"
             >
               Close
             </button>

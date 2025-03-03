@@ -20,7 +20,8 @@ const GroupManagement = ({
   showOnlyGroups,
   setShowOnlyGroups,
   showOnlyContacts,
-  setShowOnlyContacts
+  setShowOnlyContacts,
+  lastMessageTimes // New prop for last message times
 }) => {
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [groupName, setGroupName] = useState("");
@@ -91,6 +92,11 @@ const GroupManagement = ({
 
   const toggleEditGroup = (groupId) => {
     setEditingGroupId((prev) => (prev === groupId ? null : groupId));
+  };
+
+  const getLastMessageTime = (userId) => {
+    const lastMessage = lastMessageTimes.find((lm) => lm.userId === userId);
+    return lastMessage ? new Date(lastMessage.lastMessageTime).toLocaleTimeString() : "No messages yet";
   };
 
   const filteredGroups = groups.filter(group => 
@@ -228,7 +234,7 @@ const GroupManagement = ({
                 </div>
                 <div className="ml-4">
                   <p className="text-gray-800 font-medium">{safeRender(user.name)}</p>
-                  <p className="text-sm text-gray-500">Last message preview...</p>
+                  <p className="text-sm text-gray-500">{getLastMessageTime(user._id)}</p>
                 </div>
               </div>
             ))}
