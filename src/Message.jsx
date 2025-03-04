@@ -5,6 +5,7 @@ import forge from "node-forge";
 import { UserIcon, UsersIcon, PhoneIcon, BellIcon, CogIcon } from "@heroicons/react/24/outline";
 import GroupManagement from "./GroupManagement";
 import CallHandler from "./CallHandler";
+import Settings from "./Settings"; // Import the Settings component
 
 const safeRender = (value, fallback = "Unknown") => {
   if (value === null || value === undefined) return fallback;
@@ -29,6 +30,7 @@ const Message = ({ token, privateKey }) => {
   const [showOnlyContacts, setShowOnlyContacts] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [showSettings, setShowSettings] = useState(false); // State for settings overlay
   const socket = useRef(null);
   const fileInputRef = useRef(null);
   const notificationsRef = useRef(null);
@@ -104,6 +106,8 @@ const Message = ({ token, privateKey }) => {
     console.log("Starting group call for:", selectedChat);
     socket.current.emit("startGroupCall", { groupId: selectedChat });
   };
+
+  const toggleSettings = () => setShowSettings((prev) => !prev);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -336,16 +340,25 @@ const Message = ({ token, privateKey }) => {
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="p-4 sm:p-6 bg-gradient-to-r from-blue-400 to-blue-600 flex items-center">
+        <div className="p-4 sm:p-6 bg-gradient-to-r from-blue-400 to-blue-600 flex items-center justify-between">
           <h1 className="text-xl sm:text-2xl font-bold text-white">Chats</h1>
-          <button
-            className="ml-auto text-white md:hidden"
-            onClick={() => setIsSidebarOpen(false)}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={toggleSettings}
+              className="text-white hover:text-gray-200 focus:outline-none"
+              title="Settings"
+            >
+              <CogIcon className="h-6 w-6" />
+            </button>
+            <button
+              className="text-white md:hidden"
+              onClick={() => setIsSidebarOpen(false)}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
         <div className="flex flex-row space-x-4 sm:space-x-12 overflow-x-auto bg-white border-b border-gray-200 px-4 py-2">
           <button
@@ -709,6 +722,15 @@ const Message = ({ token, privateKey }) => {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Render Settings with token and control visibility */}
+      {showSettings && (
+        <Settings
+          token={token}
+          isOpen={showSettings}
+          onClose={toggleSettings}
+        />
       )}
     </div>
   );

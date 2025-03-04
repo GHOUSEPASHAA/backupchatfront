@@ -45,7 +45,7 @@ const GroupManagement = ({
             selectedMembers.map((userId) =>
               axios.put(
                 `http://localhost:3000/api/groups/${groupId}/members`,
-                { userId, canSendMessages: true, canCall: true }, // Added canCall
+                { userId, canSendMessages: true, canCall: true },
                 { headers: { Authorization: token } }
               )
             )
@@ -71,7 +71,7 @@ const GroupManagement = ({
     try {
       const response = await axios.put(
         `http://localhost:3000/api/groups/${groupId}/members`,
-        { userId, canSendMessages, canCall }, // Added canCall
+        { userId, canSendMessages, canCall },
         { headers: { Authorization: token } }
       );
       setGroups((prev) => prev.map((g) => (g._id === groupId ? response.data : g)));
@@ -85,12 +85,47 @@ const GroupManagement = ({
     try {
       const response = await axios.put(
         `http://localhost:3000/api/groups/${groupId}/permissions`,
-        { userId, canSendMessages, canCall }, // Added canCall
+        { userId, canSendMessages, canCall },
         { headers: { Authorization: token } }
       );
       setGroups((prev) => prev.map((g) => (g._id === groupId ? response.data : g)));
     } catch (error) {
       console.error("Error updating permissions:", error);
+    }
+  };
+
+  const removeMemberFromGroup = async (groupId, userId) => {
+    if (!window.confirm(`Are you sure you want to remove ${safeRender(users.find(u => u._id === userId)?.name, userId)} from the group?`)) {
+      return;
+    }
+    
+    try {
+      const response = await axios.delete(
+        `http://localhost:3000/api/groups/${groupId}/members/${userId}`,
+        { headers: { Authorization: token } }
+      );
+      setGroups((prev) => prev.map((g) => (g._id === groupId ? response.data : g)));
+    } catch (error) {
+      console.error("Error removing member from group:", error);
+    }
+  };
+
+  const deleteGroup = async (groupId) => {
+    if (!window.confirm("Are you sure you want to delete this group? This action cannot be undone.")) {
+      return;
+    }
+    
+    try {
+      await axios.delete(
+        `http://localhost:3000/api/groups/${groupId}`,
+        { headers: { Authorization: token } }
+      );
+      setGroups((prev) => prev.filter((g) => g._id !== groupId));
+      setEditingGroupId(null);
+      setSelectedChat(null);
+      setChatType(null);
+    } catch (error) {
+      console.error("Error deleting group:", error);
     }
   };
 
@@ -172,7 +207,15 @@ const GroupManagement = ({
                 </div>
                 {editingGroupId === group._id && isGroupAdmin(group._id) && !showOnlyGroups && (
                   <div className="mt-2 p-2 bg-gray-100 rounded">
-                    <h4 className="text-xs sm:text-sm font-semibold">Members</h4>
+                    <div className="flex justify-between items-center mb-2">
+                      <h4 className="text-xs sm:text-sm font-semibold">Members</h4>
+                      <button
+                        onClick={() => deleteGroup(group._id)}
+                        className="px-2 py-1 bg-red-500 text-white rounded text-xs sm:text-sm hover:bg-red-600"
+                      >
+                        Delete Group
+                      </button>
+                    </div>
                     {group.members.map((member, index) => (
                       <div
                         key={`${safeRender(member.userId?._id || member.userId)}-${index}`}
@@ -181,7 +224,7 @@ const GroupManagement = ({
                         <span>
                           {safeRender(users.find((u) => u._id === safeRender(member.userId?._id || member.userId))?.name, member.userId)}
                         </span>
-                        <div className="flex space-x-4">
+                        <div className="flex items-center space-x-4">
                           <label className="flex items-center">
                             <input
                               type="checkbox"
@@ -214,6 +257,14 @@ const GroupManagement = ({
                             />
                             <span className="ml-1 text-xs sm:text-sm">Can Call</span>
                           </label>
+                          {safeRender(member.userId?._id || member.userId) !== currentUserId && (
+                            <button
+                              onClick={() => removeMemberFromGroup(group._id, safeRender(member.userId?._id || member.userId))}
+                              className="text-red-500 hover:text-red-700 text-xs sm:text-sm"
+                            >
+                              Remove
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))}

@@ -174,116 +174,147 @@ const GroupManagement = ({
           <div className="p-2">
             <h2 className="text-xs sm:text-sm font-semibold text-gray-500 px-2 sm:px-4 mb-2">Groups</h2>
             {filteredGroups.map((group) => (
-              <div key={group._id} className="p-2 sm:p-4">
-                <div
-                  className="flex items-center hover:bg-gray-50 cursor-pointer"
-                  onClick={() => {
-                    setSelectedChat(group._id);
-                    setChatType("group");
-                    setShowOnlyGroups(false);
-                    setShowOnlyContacts(false);
-                  }}
-                >
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-blue-400 to-blue-500 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold text-sm sm:text-base">{safeRender(group.name[0])}</span>
+              <div key={group._id} className="p-2 sm:p-4 relative">
+                <div className="flex items-center hover:bg-gray-50 cursor-pointer">
+                  <div
+                    className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-blue-400 to-blue-500 rounded-full flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isGroupAdmin(group._id) && !showOnlyGroups) {
+                        toggleEditGroup(group._id);
+                      }
+                    }}
+                  >
+                    <span className="text-white font-bold text-sm sm:text-base">
+                      {safeRender(group.name[0])}
+                    </span>
                   </div>
-                  <div className="ml-2 sm:ml-4 flex-1">
+                  <div
+                    className="ml-2 sm:ml-4 flex-1"
+                    onClick={() => {
+                      setSelectedChat(group._id);
+                      setChatType("group");
+                      setShowOnlyGroups(false);
+                      setShowOnlyContacts(false);
+                    }}
+                  >
                     <p className="text-gray-800 font-medium text-sm sm:text-base">{safeRender(group.name)}</p>
                     <p className="text-xs sm:text-sm text-gray-500">{group.members.length} members</p>
                   </div>
-                  {isGroupAdmin(group._id) && !showOnlyGroups && (
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleEditGroup(group._id);
-                        }}
-                        className={`px-2 py-1 rounded text-xs sm:text-sm ${editingGroupId === group._id ? "bg-red-500 text-white" : "bg-yellow-400 text-black"}`}
-                      >
-                        {editingGroupId === group._id ? "Close" : "Edit"}
-                      </button>
-                    </div>
-                  )}
                 </div>
+
+                {/* Edit Group Popup */}
                 {editingGroupId === group._id && isGroupAdmin(group._id) && !showOnlyGroups && (
-                  <div className="mt-2 p-2 bg-gray-100 rounded">
-                    <div className="flex justify-between items-center mb-2">
-                      <h4 className="text-xs sm:text-sm font-semibold">Members</h4>
-                      <button
-                        onClick={() => deleteGroup(group._id)}
-                        className="px-2 py-1 bg-red-500 text-white rounded text-xs sm:text-sm hover:bg-red-600"
-                      >
-                        Delete Group
-                      </button>
-                    </div>
-                    {group.members.map((member, index) => (
-                      <div
-                        key={`${safeRender(member.userId?._id || member.userId)}-${index}`}
-                        className="flex items-center justify-between mt-1 text-xs sm:text-sm"
-                      >
-                        <span>
-                          {safeRender(users.find((u) => u._id === safeRender(member.userId?._id || member.userId))?.name, member.userId)}
-                        </span>
-                        <div className="flex items-center space-x-4">
-                          <label className="flex items-center">
-                            <input
-                              type="checkbox"
-                              checked={member.canSendMessages || false}
-                              onChange={(e) =>
-                                updateGroupPermissions(
-                                  group._id,
-                                  safeRender(member.userId?._id || member.userId),
-                                  e.target.checked,
-                                  member.canCall || false
-                                )
-                              }
-                              disabled={safeRender(member.userId?._id || member.userId) === currentUserId}
-                            />
-                            <span className="ml-1 text-xs sm:text-sm">Can Send</span>
-                          </label>
-                          <label className="flex items-center">
-                            <input
-                              type="checkbox"
-                              checked={member.canCall || false}
-                              onChange={(e) =>
-                                updateGroupPermissions(
-                                  group._id,
-                                  safeRender(member.userId?._id || member.userId),
-                                  member.canSendMessages || false,
-                                  e.target.checked
-                                )
-                              }
-                              disabled={safeRender(member.userId?._id || member.userId) === currentUserId}
-                            />
-                            <span className="ml-1 text-xs sm:text-sm">Can Call</span>
-                          </label>
-                          {safeRender(member.userId?._id || member.userId) !== currentUserId && (
-                            <button
-                              onClick={() => removeMemberFromGroup(group._id, safeRender(member.userId?._id || member.userId))}
-                              className="text-red-500 hover:text-red-700 text-xs sm:text-sm"
+                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md transform transition-all animate-in zoom-in-95">
+                      <div className="p-6">
+                        <div className="flex justify-between items-center mb-6">
+                          <h3 className="text-xl font-bold text-gray-800">Edit Group: {safeRender(group.name)}</h3>
+                          <button
+                            onClick={() => setEditingGroupId(null)}
+                            className="text-gray-500 hover:text-gray-700 transition-colors"
+                          >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+
+                        {/* Members List */}
+                        <div className="max-h-64 overflow-y-auto space-y-4 mb-6">
+                          {group.members.map((member, index) => (
+                            <div
+                              key={`${safeRender(member.userId?._id || member.userId)}-${index}`}
+                              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
                             >
-                              Remove
-                            </button>
-                          )}
+                              <span className="text-sm font-medium text-gray-700">
+                                {safeRender(users.find((u) => u._id === safeRender(member.userId?._id || member.userId))?.name, member.userId)}
+                              </span>
+                              <div className="flex items-center space-x-4">
+                                <label className="flex items-center space-x-1">
+                                  <input
+                                    type="checkbox"
+                                    checked={member.canSendMessages || false}
+                                    onChange={(e) =>
+                                      updateGroupPermissions(
+                                        group._id,
+                                        safeRender(member.userId?._id || member.userId),
+                                        e.target.checked,
+                                        member.canCall || false
+                                      )
+                                    }
+                                    disabled={safeRender(member.userId?._id || member.userId) === currentUserId}
+                                    className="rounded text-blue-500 focus:ring-blue-500"
+                                  />
+                                  <span className="text-xs text-gray-600">Send</span>
+                                </label>
+                                <label className="flex items-center space-x-1">
+                                  <input
+                                    type="checkbox"
+                                    checked={member.canCall || false}
+                                    onChange={(e) =>
+                                      updateGroupPermissions(
+                                        group._id,
+                                        safeRender(member.userId?._id || member.userId),
+                                        member.canSendMessages || false,
+                                        e.target.checked
+                                      )
+                                    }
+                                    disabled={safeRender(member.userId?._id || member.userId) === currentUserId}
+                                    className="rounded text-blue-500 focus:ring-blue-500"
+                                  />
+                                  <span className="text-xs text-gray-600">Call</span>
+                                </label>
+                                {safeRender(member.userId?._id || member.userId) !== currentUserId && (
+                                  <button
+                                    onClick={() => removeMemberFromGroup(group._id, safeRender(member.userId?._id || member.userId))}
+                                    className="text-red-500 hover:text-red-700 text-xs font-medium transition-colors"
+                                  >
+                                    Remove
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Add Member */}
+                        <div className="mb-6">
+                          <h4 className="text-sm font-semibold text-gray-700 mb-2">Add New Member</h4>
+                          <select
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                addMemberToGroup(group._id, e.target.value);
+                                e.target.value = "";
+                              }
+                            }}
+                            className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            defaultValue=""
+                          >
+                            <option value="">Select a user</option>
+                            {users.filter((u) => !group.members.some((m) => safeRender(m.userId?._id || m.userId) === u._id)).map((user) => (
+                              <option key={user._id} value={user._id}>{safeRender(user.name)}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex justify-between">
+                          <button
+                            onClick={() => deleteGroup(group._id)}
+                            className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium"
+                          >
+                            Delete Group
+                          </button>
+                          <button
+                            onClick={() => setEditingGroupId(null)}
+                            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
+                          >
+                            Done
+                          </button>
                         </div>
                       </div>
-                    ))}
-                    <h4 className="text-xs sm:text-sm font-semibold mt-2">Add Member</h4>
-                    <select
-                      onChange={(e) => {
-                        if (e.target.value) {
-                          addMemberToGroup(group._id, e.target.value);
-                          e.target.value = "";
-                        }
-                      }}
-                      className="w-full p-1 border rounded mt-1 text-xs sm:text-sm"
-                      defaultValue=""
-                    >
-                      <option value="">Select a user</option>
-                      {users.filter((u) => !group.members.some((m) => safeRender(m.userId?._id || m.userId) === u._id)).map((user) => (
-                        <option key={user._id} value={user._id}>{safeRender(user.name)}</option>
-                      ))}
-                    </select>
+                    </div>
                   </div>
                 )}
               </div>
