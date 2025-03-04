@@ -6,10 +6,10 @@ function Home() {
 
   return (
     <div
-      className="flex items-center justify-center min-h-screen bg-cover bg-center"
-      style={{ backgroundImage: "url('/backgroundimg.jpg')" }}
+      className=" bg-gray-200 flex items-center justify-center min-h-screen bg-cover bg-center"
+      // style={{ backgroundImage: "url('/backgroundimg.jpg')" }}
     >
-      <div className="bg-white rounded-lg shadow-2xl w-80 sm:w-96 p-6 text-center transition-shadow duration-300 hover:shadow-3xl">
+      <div className="bg-white rounded-lg shadow-2xl w-80 sm:w-96 p-6 text-center transition-shadow duration-300 hover:shadow-6xl">
         <img
           src="logo.png"
           alt="Einfratech logo"
