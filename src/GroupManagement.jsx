@@ -35,53 +35,52 @@ const GroupManagement = ({
     return group && safeRender(group.creator?._id || group.creator) === currentUserId;
   };
 
-  const handleCreateGroup = () => {
+  const handleCreateGroup = async () => {
     if (!groupName.trim()) {
-      alert("Please enter a group name.");
-      return;
+        alert("Please enter a group name.");
+        return;
     }
     if (selectedMembers.length === 0) {
-      alert("Please select at least one member.");
-      return;
+        alert("Please select at least one member.");
+        return;
     }
 
-    axios
-      .post(
-        "http://localhost:3000/api/groups",
-        { name: groupName },
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
-      .then((res) => {
-        const groupId = res.data._id;
-        return Promise.all(
-          selectedMembers.map((userId) =>
-            axios.put(
-              `http://localhost:3000/api/groups/${groupId}/members`,
-              { userId, canSendMessages: true, canCall: true },
-              { headers: { Authorization: `Bearer ${token}` } }
-            )
-          )
-        ).then(() => res.data);
-      })
-      .then((groupData) => {
-        setGroups((prev) => [...prev, groupData]);
+    try {
+        // Step 1: Create group
+        const createResponse = await axios.post(
+            "http://localhost:3000/api/groups",
+            { name: groupName },
+            { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        const groupId = createResponse.data._id;
+
+        // Step 2: Add members
+        await Promise.all(
+            selectedMembers
+                .filter(userId => userId !== currentUserId) // Creator already added by backend
+                .map((userId) =>
+                    axios.put(
+                        `http://localhost:3000/api/groups/${groupId}/members`,
+                        { userId, canSendMessages: true, canCall: true },
+                        { headers: { Authorization: `Bearer ${token}` } }
+                    )
+                )
+        );
+
+        // Step 3: Update state and close overlay
+        setGroups((prev) => [...prev, createResponse.data]);
         setGroupName("");
         setSelectedMembers([]);
         setShowCreateGroup(false);
-        console.log("Group created successfully:", groupData);
-      })
-      .catch((err) => {
+        console.log("Group created successfully:", createResponse.data);
+    } catch (err) {
         const errorMessage =
-          err.response?.data?.message || "Failed to create group. Check console for details.";
-        if (err.response?.status === 400 && err.response?.data?.message.includes("already exists")) {
-          alert("A group with this name already exists. Please choose a different name.");
-        } else {
-          alert(errorMessage);
-        }
+            err.response?.data?.error || "Failed to create group. Check console for details.";
+        alert(errorMessage);
         console.error("Error creating group:", err.response?.data || err.message);
-      });
-  };
-
+    }
+};
   const addMemberToGroup = async (groupId, userId) => {
     if (!userId || !groupId) return;
     const canSendMessages = window.confirm(
