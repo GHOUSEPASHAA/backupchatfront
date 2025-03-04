@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import io from "socket.io-client";
 import axios from "axios";
 import forge from "node-forge";
-import { UserIcon, UsersIcon, PhoneIcon, BellIcon, CogIcon } from "@heroicons/react/24/outline";
+import { UserIcon, UsersIcon, PhoneIcon, BellIcon, CogIcon,PaperClipIcon,AdjustmentsHorizontalIcon } from "@heroicons/react/24/outline";
 import GroupManagement from "./GroupManagement";
 import CallHandler from "./CallHandler";
 import Settings from "./Settings"; // Import the Settings component
@@ -348,7 +348,7 @@ const Message = ({ token, privateKey }) => {
               className="text-white hover:text-gray-200 focus:outline-none"
               title="Settings"
             >
-              <CogIcon className="h-6 w-6" />
+              <AdjustmentsHorizontalIcon className="h-6 w-6" />
             </button>
             <button
               className="text-white md:hidden"
@@ -569,13 +569,25 @@ const Message = ({ token, privateKey }) => {
         {selectedChat && (
           <div className="p-4 bg-white border-t border-gray-200 fixed bottom-0 left-0 right-0 md:static">
             <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                className="text-gray-500 text-sm w-full sm:w-auto"
-                disabled={chatType === "group" && !canSendInGroup(selectedChat)}
-              />
+              <div className="relative">
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          disabled={chatType === "group" && !canSendInGroup(selectedChat)}
+        />
+        <label
+          className={`flex items-center justify-center p-2 rounded-lg border border-gray-300 cursor-pointer ${
+            chatType === "group" && !canSendInGroup(selectedChat)
+              ? "opacity-50 cursor-not-allowed"
+              : "hover:bg-gray-100"
+          }`}
+        >
+          <PaperClipIcon className="h-5 w-5 text-gray-500" />
+        </label>
+      </div>
+              
               <input
                 type="text"
                 placeholder="Type a message or select a file..."

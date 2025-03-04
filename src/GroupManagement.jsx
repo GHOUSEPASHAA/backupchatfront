@@ -36,28 +36,50 @@ const GroupManagement = ({
   };
 
   const handleCreateGroup = () => {
-    if (groupName.trim() && selectedMembers.length > 0) {
-      axios
-        .post("http://localhost:3000/api/groups", { name: groupName }, { headers: { Authorization: token } })
-        .then((res) => {
-          const groupId = res.data._id;
-          Promise.all(
-            selectedMembers.map((userId) =>
-              axios.put(
-                `http://localhost:3000/api/groups/${groupId}/members`,
-                { userId, canSendMessages: true, canCall: true },
-                { headers: { Authorization: token } }
-              )
-            )
-          ).then(() => {
-            setGroups((prev) => [...prev, res.data]);
-            setGroupName("");
-            setSelectedMembers([]);
-            setShowCreateGroup(false);
-          });
-        })
-        .catch((err) => console.error("Error creating group:", err));
+    if (!groupName.trim()) {
+      alert("Please enter a group name.");
+      return;
     }
+    if (selectedMembers.length === 0) {
+      alert("Please select at least one member.");
+      return;
+    }
+
+    axios
+      .post(
+        "http://localhost:3000/api/groups",
+        { name: groupName },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      .then((res) => {
+        const groupId = res.data._id;
+        return Promise.all(
+          selectedMembers.map((userId) =>
+            axios.put(
+              `http://localhost:3000/api/groups/${groupId}/members`,
+              { userId, canSendMessages: true, canCall: true },
+              { headers: { Authorization: `Bearer ${token}` } }
+            )
+          )
+        ).then(() => res.data);
+      })
+      .then((groupData) => {
+        setGroups((prev) => [...prev, groupData]);
+        setGroupName("");
+        setSelectedMembers([]);
+        setShowCreateGroup(false);
+        console.log("Group created successfully:", groupData);
+      })
+      .catch((err) => {
+        const errorMessage =
+          err.response?.data?.message || "Failed to create group. Check console for details.";
+        if (err.response?.status === 400 && err.response?.data?.message.includes("already exists")) {
+          alert("A group with this name already exists. Please choose a different name.");
+        } else {
+          alert(errorMessage);
+        }
+        console.error("Error creating group:", err.response?.data || err.message);
+      });
   };
 
   const addMemberToGroup = async (groupId, userId) => {
@@ -72,7 +94,7 @@ const GroupManagement = ({
       const response = await axios.put(
         `http://localhost:3000/api/groups/${groupId}/members`,
         { userId, canSendMessages, canCall },
-        { headers: { Authorization: token } }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       setGroups((prev) => prev.map((g) => (g._id === groupId ? response.data : g)));
     } catch (error) {
@@ -86,7 +108,7 @@ const GroupManagement = ({
       const response = await axios.put(
         `http://localhost:3000/api/groups/${groupId}/permissions`,
         { userId, canSendMessages, canCall },
-        { headers: { Authorization: token } }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       setGroups((prev) => prev.map((g) => (g._id === groupId ? response.data : g)));
     } catch (error) {
@@ -95,14 +117,21 @@ const GroupManagement = ({
   };
 
   const removeMemberFromGroup = async (groupId, userId) => {
-    if (!window.confirm(`Are you sure you want to remove ${safeRender(users.find(u => u._id === userId)?.name, userId)} from the group?`)) {
+    if (
+      !window.confirm(
+        `Are you sure you want to remove ${safeRender(
+          users.find((u) => u._id === userId)?.name,
+          userId
+        )} from the group?`
+      )
+    ) {
       return;
     }
-    
+
     try {
       const response = await axios.delete(
         `http://localhost:3000/api/groups/${groupId}/members/${userId}`,
-        { headers: { Authorization: token } }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       setGroups((prev) => prev.map((g) => (g._id === groupId ? response.data : g)));
     } catch (error) {
@@ -114,12 +143,11 @@ const GroupManagement = ({
     if (!window.confirm("Are you sure you want to delete this group? This action cannot be undone.")) {
       return;
     }
-    
+
     try {
-      await axios.delete(
-        `http://localhost:3000/api/groups/${groupId}`,
-        { headers: { Authorization: token } }
-      );
+      await axios.delete(`http://localhost:3000/api/groups/${groupId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       setGroups((prev) => prev.filter((g) => g._id !== groupId));
       setEditingGroupId(null);
       setSelectedChat(null);
@@ -152,9 +180,11 @@ const GroupManagement = ({
         <input
           type="text"
           placeholder={
-            showOnlyGroups ? "Search groups..." :
-            showOnlyContacts ? "Search contacts..." :
-            "Search..."
+            showOnlyGroups
+              ? "Search groups..."
+              : showOnlyContacts
+              ? "Search contacts..."
+              : "Search..."
           }
           className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-sm sm:text-base"
           value={searchQuery}
@@ -203,35 +233,47 @@ const GroupManagement = ({
                   </div>
                 </div>
 
-                {/* Edit Group Popup */}
                 {editingGroupId === group._id && isGroupAdmin(group._id) && !showOnlyGroups && (
-                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md transform transition-all animate-in zoom-in-95">
-                      <div className="p-6">
-                        <div className="flex justify-between items-center mb-6">
-                          <h3 className="text-xl font-bold text-gray-800">Edit Group: {safeRender(group.name)}</h3>
+                  <div className="fixed inset-0 bg-gray-500 bg-opacity-30 backdrop-blur-sm flex justify-center items-center z-[100] p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg transform transition-all animate-in zoom-in-95 duration-300">
+                      <div className="p-6 border-b border-gray-100">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-gradient-to-r from-blue-400 to-blue-500 rounded-full flex items-center justify-center">
+                              <span className="text-white font-bold text-xl">{safeRender(group.name[0])}</span>
+                            </div>
+                            <div>
+                              <h3 className="text-xl font-bold text-gray-800">Edit Group</h3>
+                              <p className="text-sm text-gray-500">{safeRender(group.name)}</p>
+                            </div>
+                          </div>
                           <button
                             onClick={() => setEditingGroupId(null)}
-                            className="text-gray-500 hover:text-gray-700 transition-colors"
+                            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                           >
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                             </svg>
                           </button>
                         </div>
+                      </div>
 
-                        {/* Members List */}
-                        <div className="max-h-64 overflow-y-auto space-y-4 mb-6">
+                      <div className="p-6 max-h-[60vh] overflow-y-auto">
+                        <div className="space-y-3 mb-6">
+                          <h4 className="text-sm font-semibold text-gray-700 mb-2">Group Members</h4>
                           {group.members.map((member, index) => (
                             <div
                               key={`${safeRender(member.userId?._id || member.userId)}-${index}`}
-                              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                              className="flex items-center justify-between p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
                             >
-                              <span className="text-sm font-medium text-gray-700">
-                                {safeRender(users.find((u) => u._id === safeRender(member.userId?._id || member.userId))?.name, member.userId)}
+                              <span className="text-sm font-medium text-gray-700 truncate max-w-[40%]">
+                                {safeRender(
+                                  users.find((u) => u._id === safeRender(member.userId?._id || member.userId))?.name,
+                                  member.userId
+                                )}
                               </span>
-                              <div className="flex items-center space-x-4">
-                                <label className="flex items-center space-x-1">
+                              <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-2">
                                   <input
                                     type="checkbox"
                                     checked={member.canSendMessages || false}
@@ -244,11 +286,11 @@ const GroupManagement = ({
                                       )
                                     }
                                     disabled={safeRender(member.userId?._id || member.userId) === currentUserId}
-                                    className="rounded text-blue-500 focus:ring-blue-500"
+                                    className="rounded text-blue-500 focus:ring-blue-500 h-4 w-4"
                                   />
-                                  <span className="text-xs text-gray-600">Send</span>
-                                </label>
-                                <label className="flex items-center space-x-1">
+                                  <span className="text-xs text-gray-600">Chat</span>
+                                </div>
+                                <div className="flex items-center gap-2">
                                   <input
                                     type="checkbox"
                                     checked={member.canCall || false}
@@ -261,16 +303,20 @@ const GroupManagement = ({
                                       )
                                     }
                                     disabled={safeRender(member.userId?._id || member.userId) === currentUserId}
-                                    className="rounded text-blue-500 focus:ring-blue-500"
+                                    className="rounded text-blue-500 focus:ring-blue-500 h-4 w-4"
                                   />
                                   <span className="text-xs text-gray-600">Call</span>
-                                </label>
+                                </div>
                                 {safeRender(member.userId?._id || member.userId) !== currentUserId && (
                                   <button
-                                    onClick={() => removeMemberFromGroup(group._id, safeRender(member.userId?._id || member.userId))}
-                                    className="text-red-500 hover:text-red-700 text-xs font-medium transition-colors"
+                                    onClick={() =>
+                                      removeMemberFromGroup(group._id, safeRender(member.userId?._id || member.userId))
+                                    }
+                                    className="p-1 hover:bg-red-100 rounded-full transition-colors"
                                   >
-                                    Remove
+                                    <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
                                   </button>
                                 )}
                               </div>
@@ -278,9 +324,8 @@ const GroupManagement = ({
                           ))}
                         </div>
 
-                        {/* Add Member */}
                         <div className="mb-6">
-                          <h4 className="text-sm font-semibold text-gray-700 mb-2">Add New Member</h4>
+                          <h4 className="text-sm font-semibold text-gray-700 mb-2">Add Member</h4>
                           <select
                             onChange={(e) => {
                               if (e.target.value) {
@@ -288,31 +333,42 @@ const GroupManagement = ({
                                 e.target.value = "";
                               }
                             }}
-                            className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-gray-50"
                             defaultValue=""
                           >
-                            <option value="">Select a user</option>
-                            {users.filter((u) => !group.members.some((m) => safeRender(m.userId?._id || m.userId) === u._id)).map((user) => (
-                              <option key={user._id} value={user._id}>{safeRender(user.name)}</option>
-                            ))}
+                            <option value="">Select a user to add</option>
+                            {users
+                              .filter((u) => !group.members.some((m) => safeRender(m.userId?._id || m.userId) === u._id))
+                              .map((user) => (
+                                <option key={user._id} value={user._id}>
+                                  {safeRender(user.name)}
+                                </option>
+                              ))}
                           </select>
                         </div>
+                      </div>
 
-                        {/* Action Buttons */}
-                        <div className="flex justify-between">
-                          <button
-                            onClick={() => deleteGroup(group._id)}
-                            className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium"
-                          >
-                            Delete Group
-                          </button>
-                          <button
-                            onClick={() => setEditingGroupId(null)}
-                            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
-                          >
-                            Done
-                          </button>
-                        </div>
+                      <div className="p-6 border-t border-gray-100 flex justify-between">
+                        <button
+                          onClick={() => deleteGroup(group._id)}
+                          className="px-4 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors text-sm font-medium flex items-center gap-2"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4M9 7v12m6-12v12"
+                            />
+                          </svg>
+                          Delete Group
+                        </button>
+                        <button
+                          onClick={() => setEditingGroupId(null)}
+                          className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all text-sm font-medium"
+                        >
+                          Done
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -387,13 +443,20 @@ const GroupManagement = ({
               </div>
             </div>
             <div className="flex justify-end space-x-2">
-              <button onClick={() => setShowCreateGroup(false)} className="px-3 sm:px-4 py-2 text-gray-600 hover:text-gray-800 text-sm sm:text-base">
+              <button
+                onClick={() => setShowCreateGroup(false)}
+                className="px-3 sm:px-4 py-2 text-gray-600 hover:text-gray-800 text-sm sm:text-base"
+              >
                 Cancel
               </button>
               <button
                 onClick={handleCreateGroup}
-                className="px-3 sm:px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 text-sm sm:text-base"
                 disabled={!groupName.trim() || selectedMembers.length === 0}
+                className={`px-3 sm:px-4 py-2 text-white rounded-lg text-sm sm:text-base ${
+                  !groupName.trim() || selectedMembers.length === 0
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
+                }`}
               >
                 Create Group
               </button>
