@@ -213,20 +213,7 @@ const Settings = ({ token, isOpen, onClose }) => {
               )}
             </div>
 
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500">Status</span>
-              <select
-                name="status"
-                value={user.status}
-                onChange={handleChange}
-                className="text-sm text-gray-700 border-b-2 border-gray-300 focus:outline-none focus:border-indigo-500 cursor-pointer"
-              >
-                <option value="Online">Online</option>
-                <option value="Working">Working</option>
-                <option value="Away">Away</option>
-                <option value="Offline">Offline</option>
-              </select>
-            </div>
+            
           </div>
         </div>
 
