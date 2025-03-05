@@ -233,7 +233,7 @@ const GroupManagement = ({
                 </div>
 
                 {editingGroupId === group._id && isGroupAdmin(group._id) && !showOnlyGroups && (
-                  <div className="fixed inset-0 bg-gray-500 bg-opacity-30 backdrop-blur-sm flex justify-center items-center z-[100] p-4">
+                  <div className="fixed inset-0 bg-white-500 bg-opacity-30 backdrop-blur-sm flex justify-center items-center z-[100] p-4">
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg transform transition-all animate-in zoom-in-95 duration-300">
                       <div className="p-6 border-b border-gray-100">
                         <div className="flex items-center justify-between">
@@ -410,59 +410,65 @@ const GroupManagement = ({
       </div>
 
       {showCreateGroup && !showOnlyGroups && !showOnlyContacts && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-sm">
-            <h2 className="text-lg sm:text-xl font-bold mb-4">Create New Group</h2>
-            <input
-              type="text"
-              placeholder="Group Name"
-              value={groupName}
-              onChange={(e) => setGroupName(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:border-blue-500 text-sm sm:text-base"
-            />
-            <div className="mb-4">
-              <h3 className="text-xs sm:text-sm font-semibold mb-2">Select Members</h3>
-              <div className="max-h-40 sm:max-h-48 overflow-y-auto">
-                {users.map((user) => (
-                  <div key={user._id} className="flex items-center p-2 text-sm">
-                    <input
-                      type="checkbox"
-                      id={`user-${user._id}`}
-                      checked={selectedMembers.includes(user._id)}
-                      onChange={() =>
-                        setSelectedMembers((prev) =>
-                          prev.includes(user._id) ? prev.filter((id) => id !== user._id) : [...prev, user._id]
-                        )
-                      }
-                      className="mr-2"
-                    />
-                    <label htmlFor={`user-${user._id}`}>{safeRender(user.name)}</label>
-                  </div>
-                ))}
-              </div>
+  <div 
+    className="fixed inset-0 bg-white-500 bg-opacity-30 backdrop-blur-sm flex justify-center items-center z-[100] p-4"
+    onClick={() => setShowCreateGroup(false)} // Close on backdrop click
+  >
+    <div 
+      className="bg-white rounded-2xl shadow-xl w-full max-w-lg transform transition-all animate-in zoom-in-95 duration-300 p-4 sm:p-6"
+      onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
+    >
+      <h2 className="text-lg sm:text-xl font-bold mb-4">Create New Group</h2>
+      <input
+        type="text"
+        placeholder="Group Name"
+        value={groupName}
+        onChange={(e) => setGroupName(e.target.value)}
+        className="w-full p-2 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:border-blue-500 text-sm sm:text-base"
+      />
+      <div className="mb-4">
+        <h3 className="text-xs sm:text-sm font-semibold mb-2">Select Members</h3>
+        <div className="max-h-40 sm:max-h-48 overflow-y-auto">
+          {users.map((user) => (
+            <div key={user._id} className="flex items-center p-2 text-sm">
+              <input
+                type="checkbox"
+                id={`user-${user._id}`}
+                checked={selectedMembers.includes(user._id)}
+                onChange={() =>
+                  setSelectedMembers((prev) =>
+                    prev.includes(user._id) ? prev.filter((id) => id !== user._id) : [...prev, user._id]
+                  )
+                }
+                className="mr-2"
+              />
+              <label htmlFor={`user-${user._id}`}>{safeRender(user.name)}</label>
             </div>
-            <div className="flex justify-end space-x-2">
-              <button
-                onClick={() => setShowCreateGroup(false)}
-                className="px-3 sm:px-4 py-2 text-gray-600 hover:text-gray-800 text-sm sm:text-base"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreateGroup}
-                disabled={!groupName.trim() || selectedMembers.length === 0}
-                className={`px-3 sm:px-4 py-2 text-white rounded-lg text-sm sm:text-base ${
-                  !groupName.trim() || selectedMembers.length === 0
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
-                }`}
-              >
-                Create Group
-              </button>
-            </div>
-          </div>
+          ))}
         </div>
-      )}
+      </div>
+      <div className="flex justify-end space-x-2">
+        <button
+          onClick={() => setShowCreateGroup(false)}
+          className="px-3 sm:px-4 py-2 text-gray-600 hover:text-gray-800 text-sm sm:text-base"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleCreateGroup}
+          disabled={!groupName.trim() || selectedMembers.length === 0}
+          className={`px-3 sm:px-4 py-2 text-white rounded-lg text-sm sm:text-base ${
+            !groupName.trim() || selectedMembers.length === 0
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
+          }`}
+        >
+          Create Group
+        </button>
+      </div>
+    </div>
+  </div>
+)}
     </>
   );
 };

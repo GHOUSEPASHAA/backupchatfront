@@ -52,8 +52,8 @@ export default function SignUp({ authState, updateAuth }) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4 sm:p-6 md:p-8 bg-cover bg-center"
-      style={{ backgroundImage: "url('/backgroundimg.jpg')" }}>
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center bg-gray-100 p-4 sm:p-6 md:p-8 bg-cover bg-center"
+      >
       <div className="absolute top-4 left-4 sm:top-6 sm:left-6">
         <Link
           to="/"
